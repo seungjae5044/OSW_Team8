@@ -1,4 +1,4 @@
-This repository is for final project of the opensource softwar programing class.
+This repository is for final project of the opensource software programing class.
 
 Our Branch Rule:
 
