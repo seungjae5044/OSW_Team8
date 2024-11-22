@@ -22,4 +22,3 @@ while True:
     data = ser.read_all()
     print(data)
     time.sleep_ms(1000)
-
