@@ -6,8 +6,6 @@ from pybricks.parameters import Port, Stop, Direction, Button, Color
 from pybricks.tools import wait, StopWatch, DataLog
 from pybricks.robotics import DriveBase
 from pybricks.media.ev3dev import SoundFile, ImageFile
-from pybricks.iodevices import UARTDevice
-import time
 
 
 # This program requires LEGO EV3 MicroPython v2.0 or higher.
@@ -17,8 +15,29 @@ import time
 # Create your objects here.
 ev3 = EV3Brick()
 
-ser = UARTDevice(Port.S4,baudrate=115200)
+# Initialize the motors.
+left_motor = Motor(Port.B)
+right_motor = Motor(Port.C)
+
+# Set wheel_diameter and axle_track
+wheel_diameter = 5.6
+axle_track = 115
+
+# Initialize the drive base
+robot = DriveBase(left_motor, right_motor, wheel_diameter, axle_track)
+gyro = GyroSensor(Port.S1)
+
+# robot.drive(50,0)
+# wait(1000)
+# robot.stop()
+# robot.drive(50,0)
+# wait(1000)
+# robot.brok()
+
+gyro.reset_angle(0)
+
 while True:
-    data = ser.read_all()
-    print(data)
-    time.sleep_ms(1000)
+    robot.turn(1)
+    if gyro.angle() <= 90:
+        break
+    wait(1000)
