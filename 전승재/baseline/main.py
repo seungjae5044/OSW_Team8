@@ -12,14 +12,14 @@ import time
 #==========[sensors]==========
 ev3 = EV3Brick()
 gyro = GyroSensor(Port.S1)
-ser = UARTDevice(Port.S2, baudrate=115200)
+ser = UARTDevice(Port.S3, baudrate=115200)
 
 #==========[motors]==========
-grab_motor = Motor(Port.B)
-shooting_motor = Motor(Port.C)
+grab_motor = Motor(Port.A)
+shooting_motor = Motor(Port.D)
 
-left_motor = Motor(Port.A)
-right_motor = Motor(Port.D)
+left_motor = Motor(Port.C)
+right_motor = Motor(Port.B)
 robot = DriveBase(left_motor, right_motor, wheel_diameter=56, axle_track=115)
 
 #==========[target_angle turn(gyro)]==========
@@ -87,11 +87,11 @@ def grab(command):
 def shoot(command):
     if command == 'zero':
         #zero_position
-        shooting_motor.run_until_stalled(-100,Stop.COAST,duty_limit=50)
+        shooting_motor.run_until_stalled(-150,Stop.COAST,duty_limit=50)
     elif command == 'shoot':
         #shooting
-        shooting_motor.run(1750)
-        time.sleep(0.25)
+        shooting_motor.run(5000)
+        time.sleep(0.55)
         shooting_motor.stop()
 
 
@@ -110,12 +110,13 @@ grab('motion1') #공을 잡기 위한 높이로 열기
 print("Zero set postion completed")
 
 #==========[main loop]==========
-"""
+
 while True:
     data = ser.read_all()
     # 데이터 처리 및 결과 필터링
     try:
         filter_result = process_uart_data(data)
+        print(filter_result)
         #filter_result[0] : x, filter_result[1] : y
         if filter_result[0]!= -1 and filter_result[1]!= -1:
         # if filter_result[0]!= -1 and filter_result[1]!= -1:
@@ -124,6 +125,7 @@ while True:
                 grab('motion3') #공을 잡기
                 time.sleep(1) #동작간 딜레이
                 turn(0,100) #정면(상대방 진영)바라보기
+
                 time.sleep(1) #동작간 딜레이
                 grab('motion1') #슛을 위한 열기
                 time.sleep(0.5) #동작간 딜레이
@@ -151,5 +153,5 @@ while True:
         wait(10)
     except:
         pass
-"""
+
 
