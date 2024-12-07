@@ -12,7 +12,6 @@ import time
 #==========[sensors]==========
 ev3 = EV3Brick()
 gyro = GyroSensor(Port.S3)
-color = GyroSensor(Port.S1)
 ser = UARTDevice(Port.S4, baudrate=115200)
 
 #==========[motors]==========
@@ -63,13 +62,13 @@ def process_uart_data(data):
         # 에러 처리
         return [-1,-1] # -1이 나오면 무시하는 코드 사용
 
-# def pd_control(cam_data, kp, kd, power):
-#     global previous_error
-#     error = cam_data - threshold
-#     derivative = error - previous_error
-#     output = (kp * error) + (kd * derivative)
-#     robot.drive(power, output)
-#     previous_error = error
+def pd_control(cam_data, kp, kd, power):
+    global previous_error
+    error = cam_data - threshold
+    derivative = error - previous_error
+    output = (kp * error) + (kd * derivative)
+    robot.drive(power, output)
+    previous_error = error
 
 #==========[shooting positions]==========
 def grab(command):
@@ -107,24 +106,53 @@ shoot('zero') #shoot 모터가 안쪽이고,
 print("Zero set postion completed")
 
 #==========[main loop]==========
+# while True:
+#     data = ser.read_all()
+#     # 데이터 처리 및 결과 필터링
+#     try:
+#         filter_result = process_uart_data(data)
+#         #filter_result[0] : x, filter_result[1] : y
+#         if filter_result[0]!= -1 and filter_result[1]!= -1:
+#         # if filter_result[0]!= -1 and filter_result[1]!= -1:
+#             if filter_result[1] > 90: #공이 카메라 화면 기준으로 아래에 위치 = 로봇에 가까워졌다
+#                 robot.straight(100) #강제로 앞으로 이동
+#                 time.sleep(1) #동작간 딜레이
+#                 turn(0,100) #정면(상대방 진영)바라보기
+#                 time.sleep(1) #동작간 딜레이
+#                 shoot('shoot') #공 날리기
+#                 time.sleep(0.5) #동작간 딜레이
+#                 shoot('zero')
+#             else: #공이 카메라 화면 기준 멀리 위치해 있으면 chase한다
+#                 pd_control(filter_result[0], kp=0.5, kd=0.1, power=100)
+#         else: # 센서가 공을 보지 못했을 경우의 움직임.
+#             robot.straight(50)
+#             robot.turn(10)
+
+#         time.sleep_ms(50)
+#     except:
+#         pass
+
+# while True:
+#     try:
+#         data = ser.read_all()
+#         filter_result = process_uart_data(data)
+#         if filter_result[0]!= -1 and filter_result[1]!= -1:
+#             print(filter_result)
+#             pd_control(filter_result[0], kp=0.5, kd=0.1, power=100)
+#         wait(10)
+#     except:
+#         pass
+        
 
 
 def pd_control_gyro(angle, kp, kd, power, target):
-    global previous_error
+    global previous_error_gyro
     error = angle - target
-    derivative = error - previous_error
+    derivative = error - previous_error_gyro
     output = -((kp * error) + (kd * derivative))
     print(output)
     robot.drive(power, output*5)
-    previous_error = error
-
-# def pd_control(angle, kp, kd, power):
-#     global previous_error
-#     error = angle - threshold
-#     derivative = error - previous_error
-#     output = (kp * error) + (kd * derivative)
-#     robot.drive(power, output)
-#     previous_error = error
+    previous_error_gyro = error
 
 
 def drive_with_turn(target_angle):
