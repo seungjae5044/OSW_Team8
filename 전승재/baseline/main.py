@@ -13,7 +13,7 @@ import time
 ev3 = EV3Brick()
 gyro = GyroSensor(Port.S1)
 ser = UARTDevice(Port.S3, baudrate=115200)
-
+ 
 #==========[motors]==========
 grab_motor = Motor(Port.A)
 shooting_motor = Motor(Port.D)
