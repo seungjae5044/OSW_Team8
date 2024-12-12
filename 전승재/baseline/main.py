@@ -22,28 +22,57 @@ left_motor = Motor(Port.C)
 right_motor = Motor(Port.B)
 robot = DriveBase(left_motor, right_motor, wheel_diameter=56, axle_track=115)
 
-#==========[target_angle turn(gyro)]==========
+#==========[pd_control]==========
+def pd_control(cam_data, kp, kd, power):
+    global previous_error
+    error = cam_data - threshold
+    derivative = error - previous_error
+    output = -(kp * error) + (kd * derivative)
+    robot.drive(power, output*2)
+    previous_error = error
+
+def pd_control_gyro(angle, kp, kd, power, target):
+    global previous_error_gyro
+    error = angle - target
+    derivative = error - previous_error_gyro
+    output = ((kp * error) + (kd * derivative))
+    print(output)
+    robot.drive(power, output*5)
+    previous_error_gyro = error
+
+#==========[motion]==========
 def turn(target_angle, power):
-    
-    # left_motor.run(power)
-    # right_motor.run(-power)
-    # while True:
-    #     angle=gyro.angle()
-        
-    #     if abs(angle)>target_angle-2:
-    #         left_motor.stop()
-    #         right_motor.stop()
-    #         break
-    # robot.turn()
+    angle = gyro.angle()
+    t = target_angle - angle
     print('robot turn')
-    robot.drive(power, power)
+    robot.drive(0, -t/abs(t)*power)
     while True:
         angle = gyro.angle()
-        print(angle)
-        if abs(angle)>target_angle-2:
+        print(angle, angle-target_angle)
+        if abs(angle-target_angle) < 10:
             robot.stop()
             break
 
+def drive_with_turn(target_angle, power):
+    print('robot turn')
+    while True:
+        pd_control_gyro(gyro.angle(), kp=0.5, kd=0.1, power = power , target = target_angle)
+        angle = gyro.angle()
+        if abs(angle-target_angle) < 2:
+            robot.stop()
+            break
+
+def drive_until_stalled(displacement, power):
+    robot.drive(power,0)
+    time.sleep(1)
+    while True:
+        previous_displacement = robot.distance()
+        time.sleep(1)
+        print(previous_displacement - robot.distance())
+        if abs(previous_displacement - robot.distance()) < displacement:
+            robot.stop()
+            break
+    
 #==========[camera_chase]==========
 def process_uart_data(data):
     try:
@@ -62,26 +91,21 @@ def process_uart_data(data):
         # 에러 처리
         return [-1,-1] # -1이 나오면 무시하는 코드 사용
 
-def pd_control(cam_data, kp, kd, power):
-    global previous_error
-    error = cam_data - threshold
-    derivative = error - previous_error
-    output = (kp * error) + (kd * derivative)
-    robot.drive(power, output)
-    previous_error = error
-
 #==========[shooting positions]==========
 def grab(command):
-    if command == 'motion3':
+    if command == 'zero':
         #close
         grab_motor.run_until_stalled(100,Stop.COAST,duty_limit=50)
         #set_zero point
         grab_motor.reset_angle(0)
-    elif command == 'motion1':
-        #open1
+    elif command == 'open':
+        #open
         grab_motor.run_until_stalled(-100,Stop.COAST,duty_limit=50)
-    elif command == 'motion2':
-        #open2
+    elif command == 'grab':
+        #only grab
+        grab_motor.run_until_stalled(100,Stop.COAST,duty_limit=50)
+    elif command == 'search':
+        #search
         grab_motor.run_target(100,-100)
 
 def shoot(command):
@@ -90,55 +114,69 @@ def shoot(command):
         shooting_motor.run_until_stalled(-150,Stop.COAST,duty_limit=50)
     elif command == 'shoot':
         #shooting
-        shooting_motor.run(5000)
-        time.sleep(0.55)
+        shooting_motor.run(1000)
+        time.sleep(0.5)
         shooting_motor.stop()
 
+def zero_set_position():
+    shoot('zero') #shoot 모터가 안쪽이고,
+    grab('zero') #grab 모터가 바깥쪽이므로 shoot먼저 세팅 후 grab을 세팅해야한다
 
+def go_home():
+    drive_until_stalled(150, -150)
+
+def grab_true():
+    print("===========debug")
+    print(grab_motor.angle())
+    if abs(grab_motor.angle()) > 3:
+        return True
+    else:
+        return False
 
 #==========[setup]==========
 ev3.speaker.beep()
 threshold = 80
 previous_error = 0
+previous_error_gyro = 0
 gyro.reset_angle(0)
 #==========[zero set position setting]==========
-shoot('zero') #shoot 모터가 안쪽이고,
-grab('motion3') #grab 모터가 바깥쪽이므로 shoot먼저 세팅 후 grab을 세팅해야한다
-time.sleep(1)
-grab('motion1') #공을 잡기 위한 높이로 열기
 
-print("Zero set postion completed")
+zero_set_position()
+time.sleep(1)
+grab('search') #공을 잡기 위한 높이로 열기
 
 #==========[main loop]==========
+
+
 
 while True:
     data = ser.read_all()
     # 데이터 처리 및 결과 필터링
     try:
         filter_result = process_uart_data(data)
-        print(filter_result)
         #filter_result[0] : x, filter_result[1] : y
         if filter_result[0]!= -1 and filter_result[1]!= -1:
-        # if filter_result[0]!= -1 and filter_result[1]!= -1:
-            if filter_result[1] > 90: #공이 카메라 화면 기준으로 아래에 위치 = 로봇에 가까워졌다
+            if filter_result[1] > 100: #공이 카메라 화면 기준으로 아래에 위치 = 로봇에 가까워졌다
                 robot.straight(100) #강제로 앞으로 이동
-                grab('motion3') #공을 잡기
-                time.sleep(1) #동작간 딜레이
-                turn(0,100) #정면(상대방 진영)바라보기
-
-                time.sleep(1) #동작간 딜레이
-                grab('motion1') #슛을 위한 열기
-                time.sleep(0.5) #동작간 딜레이
-                shoot('shoot') #공 날리기
-                time.sleep(0.5) #동작간 딜레이
-                shoot('zero')
-                grab('motion2') 
+                if grab_true():
+                    drive_with_turn(0, 100)
+                    drive_until_stalled(100, 100)
+                    grab('grab')
+                    robot.straight(-100)
+                    turn(45,100) #정면(상대방 진영)바라보기
+                    time.sleep(1) #동작간 딜레이
+                    grab('open') #슛을 위한 열기
+                    shoot('shoot') #공 날리기
+                    time.sleep(0.5) #동작간 딜레이
+                zero_set_position()
+                turn(0,100)
+                go_home()
+                grab('search')
             else: #공이 카메라 화면 기준 멀리 위치해 있으면 chase한다
                 pd_control(filter_result[0], kp=0.5, kd=0.1, power=100)
         # else: # 센서가 공을 보지 못했을 경우의 움직임.
         #     robot.straight(50)
         #     robot.turn(10)
-
         time.sleep_ms(50)
     except:
         pass
@@ -153,5 +191,3 @@ while True:
         wait(10)
     except:
         pass
-
-
