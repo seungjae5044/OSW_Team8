@@ -100,22 +100,22 @@ def grab(command):
         grab_motor.reset_angle(0)
     elif command == 'open':
         #open
-        grab_motor.run_until_stalled(-100,Stop.COAST,duty_limit=50)
+        grab_motor.run_target(600,-200)
     elif command == 'grab':
         #only grab
         grab_motor.run_until_stalled(100,Stop.COAST,duty_limit=50)
     elif command == 'search':
         #search
-        grab_motor.run_target(100,-100)
+        grab_motor.run_target(600,-150)
 
 def shoot(command):
     if command == 'zero':
         #zero_position
-        shooting_motor.run_until_stalled(-150,Stop.COAST,duty_limit=50)
+        shooting_motor.run_until_stalled(-200,Stop.COAST,duty_limit=50)
     elif command == 'shoot':
         #shooting
-        shooting_motor.run(1000)
-        time.sleep(0.5)
+        shooting_motor.run(2000)
+        time.sleep(0.2)
         shooting_motor.stop()
 
 def zero_set_position():
@@ -126,12 +126,14 @@ def go_home():
     drive_until_stalled(150, -150)
 
 def grab_true():
-    print("===========debug")
+    print("===========debug===========")
     print(grab_motor.angle())
     if abs(grab_motor.angle()) > 3:
         return True
     else:
         return False
+
+
 
 #==========[setup]==========
 ev3.speaker.beep()
@@ -146,48 +148,38 @@ time.sleep(1)
 grab('search') #공을 잡기 위한 높이로 열기
 
 #==========[main loop]==========
-
+t = 1
+drive_power = 150
 
 
 while True:
     data = ser.read_all()
-    # 데이터 처리 및 결과 필터링
-    try:
-        filter_result = process_uart_data(data)
-        #filter_result[0] : x, filter_result[1] : y
-        if filter_result[0]!= -1 and filter_result[1]!= -1:
-            if filter_result[1] > 100: #공이 카메라 화면 기준으로 아래에 위치 = 로봇에 가까워졌다
-                robot.straight(100) #강제로 앞으로 이동
-                if grab_true():
-                    drive_with_turn(0, 100)
-                    drive_until_stalled(100, 100)
-                    grab('grab')
-                    robot.straight(-100)
-                    turn(45,100) #정면(상대방 진영)바라보기
-                    time.sleep(1) #동작간 딜레이
-                    grab('open') #슛을 위한 열기
-                    shoot('shoot') #공 날리기
-                    time.sleep(0.5) #동작간 딜레이
-                zero_set_position()
-                turn(0,100)
-                go_home()
-                grab('search')
-            else: #공이 카메라 화면 기준 멀리 위치해 있으면 chase한다
-                pd_control(filter_result[0], kp=0.5, kd=0.1, power=100)
-        # else: # 센서가 공을 보지 못했을 경우의 움직임.
-        #     robot.straight(50)
-        #     robot.turn(10)
-        time.sleep_ms(50)
-    except:
-        pass
-
-while True:
-    try:
-        data = ser.read_all()
-        filter_result = process_uart_data(data)
-        if filter_result[0]!= -1 and filter_result[1]!= -1:
-            print(filter_result)
+    filter_result = process_uart_data(data)
+    if filter_result[0]!= -1 and filter_result[1]!= -1:
+        t = 0
+        if filter_result[1] > 100: #공이 카메라 화면 기준으로 아래에 위치 = 로봇에 가까워졌다
+            robot.straight(100) #강제로 앞으로 이동
+            if grab_true():
+                drive_with_turn(0, drive_power)
+                #drive_until_stalled(100, 100)
+                robot.drive(drive_power, 0)
+                time.sleep(4)
+                robot.stop()
+                grab('grab')
+                robot.straight(-300)
+                turn(45,drive_power) #정면(상대방 진영)바라보기
+                time.sleep(1) #동작간 딜레이
+                grab('open') #슛을 위한 열기
+                shoot('shoot') #공 날리기
+                time.sleep(0.5) #동작간 딜레이
+            zero_set_position()
+            turn(0,drive_power)
+            robot.drive(-drive_power*2, 0)
+            time.sleep(4)
+            robot.stop()
+            grab('search')
+            t = 1
+        else: #공이 카메라 화면 기준 멀리 위치해 있으면 chase한다
             pd_control(filter_result[0], kp=0.5, kd=0.1, power=100)
-        wait(10)
-    except:
-        pass
+
+    time.sleep_ms(50)
